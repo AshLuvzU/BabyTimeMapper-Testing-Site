@@ -68,16 +68,16 @@ body {
 }
 
 #card-panel .card-date {
-  font-size: clamp(1.5rem, 3vw, 3rem); 
+  font-size: clamp(1.5rem, 3vw, 3rem);
 
 }
 #card-panel .card-title {
-  font-size: clamp(1rem, 2vw, 2rem); 
+  font-size: clamp(1rem, 2vw, 2rem);
 
 }
 
 #card-panel .card-desc {
-  font-size: clamp(0.7rem, 2vw, 2rem); 
+  font-size: clamp(0.7rem, 2vw, 1.4rem);
 }
 
 /* -------------------------------------------------------------------------

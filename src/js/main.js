@@ -399,6 +399,9 @@ function buildCard(event, index, events, onSelect) {
 
   panel.appendChild(svg);
 
+  const maxTextWidth = screenWidth - 40 - 320; // left margin, then room for the arrows
+  fitTextToLines(desc, event.description ?? "", maxTextWidth);
+
   const titleWidth = title.getComputedTextLength();
 
   const highlight = document.createElementNS(svgNS, "line");
@@ -409,6 +412,66 @@ function buildCard(event, index, events, onSelect) {
   highlight.setAttribute("stroke", "#17aaff77");
   highlight.setAttribute("stroke-width", 20);
   svg.insertBefore(highlight, title);
+}
+
+/* wrapText and fitTextToLines: ebb: These next functions help out
+the buildCard function, to allow wrapping
+long text in descriptions. */
+// Wraps text into <tspan> lines that fit within maxWidth.
+// The element must already be in the DOM, because measuring needs rendered text.
+function wrapText(textEl, text, maxWidth, lineHeight = 25) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const x = textEl.getAttribute("x");
+  const words = text.split(/\s+/); // also collapses newlines and indentation from the XML
+  textEl.textContent = "";
+
+  const newLine = (dy) => {
+    const tspan = document.createElementNS(svgNS, "tspan");
+    tspan.setAttribute("x", x); // each line restarts at the left margin
+    tspan.setAttribute("dy", dy); // and moves down one line
+    textEl.appendChild(tspan);
+    return tspan;
+  };
+
+  let tspan = newLine(0);
+  let line = "";
+  let lineCount = 1;
+
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    tspan.textContent = test;
+    if (tspan.getComputedTextLength() > maxWidth && line) {
+      tspan.textContent = line; // keep the previous line without the overflowing word
+      tspan = newLine(lineHeight);
+      tspan.textContent = word;
+      line = word;
+      lineCount += 1;
+    } else {
+      line = test;
+    }
+  });
+  return lineCount;
+}
+// fitTextToLines: Shrinks the font one pixel at a time until the text fits in maxLines.
+// Starts from whatever size our CSS gives the element.
+function fitTextToLines(
+  textEl,
+  text,
+  maxWidth,
+  maxLines = 3,
+  minSize = 8,
+  lineHeight = 25,
+) {
+  let size = parseFloat(getComputedStyle(textEl).fontSize);
+  textEl.style.fontSize = `${size}px`;
+  let lines = wrapText(textEl, text, maxWidth, lineHeight);
+
+  while (lines > maxLines && size > minSize) {
+    size -= 1;
+    textEl.style.fontSize = `${size}px`;
+    lines = wrapText(textEl, text, maxWidth, lineHeight);
+  }
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -681,6 +744,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   svg.appendChild(g);
   return { svg, translateX, xSpacer };
 }
+let currentIndex = 0;
 
 // ---------------------------------------------------------------------------
 // selectEvent()
@@ -688,6 +752,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
 // Updates the card panel, pans the map, and scrolls the timeline ruler.
 // ---------------------------------------------------------------------------
 function selectEvent(index, events, map, svgInfo, onSelect) {
+  currentIndex = index;
   const event = events[index];
 
   buildCard(event, index, events, onSelect);
@@ -738,3 +803,12 @@ document.getElementById("timeline-ruler").appendChild(svg);
 
 // Show the first event's card on load
 selectEvent(0, events, map, svgInfo, onSelect);
+
+// ebb: Listen for window resizing when we have long text in descriptions:
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer); // wait until resizing pauses
+  resizeTimer = setTimeout(() => {
+    buildCard(events[currentIndex], currentIndex, events, onSelect);
+  }, 150);
+});
