@@ -25,7 +25,7 @@ function getChild(node, tag) {
   }
   const result =
     Array.from(node.children).find((el) => el.tagName === tag) ?? null;
-  console.log(`getChild(${tag}):`, result);
+  // console.log(`getChild(${tag}):`, result);
   return result;
 }
 
@@ -35,26 +35,60 @@ function getChild(node, tag) {
 // year and era are always present; month and day are optional.
 // ---------------------------------------------------------------------------
 function parseDate(dateNode) {
-  const year = parseInt(getChild(dateNode, "year")?.textContent.trim());
-  const month = getChild(dateNode, "month")?.textContent.trim() ?? 0;
-  const day = getChild(dateNode, "day")?.textContent.trim() ?? 0;
+  const year = parseInt(getChild(dateNode, "year")?.textContent.trim(), 10);
+  // ebb: In these variables for year, month, and day,
+  // adding the `, 10` is a "radix", which tells JS to treat the data as base-10 numbers.
+  // (This prevents the numbers from being misread as hexadecimal or octals or something.
+  // Old JS engines used to presume left-padded
+  // zeroes in numbers were octals! )
+  // month and day are numbers; 0 means "not given"
+  const month =
+    parseInt(getChild(dateNode, "month")?.textContent.trim(), 10) || 0;
+  const day = parseInt(getChild(dateNode, "day")?.textContent.trim(), 10) || 0;
   const era = getChild(dateNode, "era")?.textContent.trim();
+
+  if (year === 0) {
+    console.warn(
+      "Year 0 does not exist in this scheme, no thanks to the monk  Dionysius Exiguus who came up with BC and AD with no year 0: (1 BC is followed by 1 AD).",
+    );
+  }
 
   return { year, month, day, era };
 }
 
 // ---------------------------------------------------------------------------
-// toAstronomicalYear()
-// Converts a parsed date to a single number on a continuous timeline.
-// BC 55 = -55, BC 1 = -1, year 0 = 0, AD 1 = 1, AD 1789 = 1789
+// ebb: Adding some help for handling / positioning fractional months
+//  when dates start mid-year.
+// Days per month (non-leap), used to turn a day into a fraction of a month.
 // ---------------------------------------------------------------------------
-function toAstronomicalYear(parsedDate) {
-  if (parsedDate.era === "BC") {
-    return -parsedDate.year;
-  } else {
-    return parsedDate.year;
-  }
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+// ---------------------------------------------------------------------------
+// toSignedYear()
+// Converts a parsed date to a single number on a continuous timeline.
+// BC 55 = -55, BC 1 = -1, (there is NO year 0!), AD 1 = 1, AD 1789 = 1789
+// A date means the START of its most precise unit given:
+//   1860 -> 1860.0   March 1860 -> 1860 + 2/12   14 March 1860 -> + a bit more
+// For BC the fraction is added AFTER negating the year, so later months
+// always move later in time (-100 + 0.5 is July of 100 BC).
+// ---------------------------------------------------------------------------
+function toSignedYear(parsedDate) {
+  const base = parsedDate.era === "BC" ? -parsedDate.year : parsedDate.year;
+  const { month, day } = parsedDate;
+  if (!month) return base;
+  const dayFrac = day ? (day - 1) / DAYS_IN_MONTH[month - 1] : 0;
+  return base + (month - 1 + dayFrac) / 12;
 }
+
+// ---------------------------------------------------------------------------
+// toPos()
+// ebb: We want a **signed year**, for a continuous ruler position, removing where
+// a year "0" would be. 1 BC occupies [0, 1) and 1 AD occupies [1, 2), so 1 BC to 1 AD
+// is exactly one year wide. This helps us to turn the Year into an x coordinate: it's
+// effectively positioned at 0 but signed at -1;
+// Our labels and data are represented as "signed years", with their numbering as indicated.
+// ---------------------------------------------------------------------------
+const toPos = (year) => (year < 0 ? year + 1 : year);
 
 // ---------------------------------------------------------------------------
 // formatDate()
@@ -132,28 +166,24 @@ async function parseEvents() {
     const eventNodes = Array.from(trackNode.children);
 
     return eventNodes.map((node) => {
-      const startDateNode = Array.from(node.children).find(
-        (el) => el.tagName === "date" && el.getAttribute("type") === "start",
+      // Only <date> elements with content; an empty <date/> is ignored
+      const dateNodes = Array.from(node.children).filter(
+        (el) => el.tagName === "date" && el.children.length > 0,
       );
-      const endDateNode = Array.from(node.children).find(
-        (el) => el.tagName === "date" && el.getAttribute("type") === "end",
-      );
-
-      const startDate = parseDate(startDateNode);
-      const endDate =
-        endDateNode && endDateNode.children.length > 0
-          ? parseDate(endDateNode)
-          : null;
+      console.log("dateNodes", dateNodes);
+      const dates = dateNodes.map((dateNode) => parseDate(dateNode));
+      const startDate = dates[0] ?? null;
+      const endDate = dates[1] ?? null;
 
       return {
         track,
         name,
         title: getChild(node, "title")?.textContent.trim(),
         date: startDate,
-        endDate: endDate,
-        astronomicalYear: toAstronomicalYear(startDate),
-        astronomicalYearEnd: endDate ? toAstronomicalYear(endDate) : null,
-        displayDate: formatDate(startDate),
+        endDate,
+        signedYearStart: startDate ? toSignedYear(startDate) : null,
+        signedYearEnd: endDate ? toSignedYear(endDate) : null,
+        displayDate: startDate ? formatDate(startDate) : "",
         displayDateEnd: endDate ? formatDate(endDate) : "",
         description: getChild(node, "description")?.textContent.trim(),
         lat: parseFloat(getChild(node, "lat")?.textContent),
@@ -162,6 +192,29 @@ async function parseEvents() {
       };
     });
   });
+}
+// ---------------------------------------------------------------------------
+// getYearRange()
+// Pools every start AND end date so the ruler covers the full span, whichever
+// event holds the latest date. Returns the current year for both ends when no
+// dates exist. Future dates are never capped: the current year is only the
+// empty-data fallback.
+// ---------------------------------------------------------------------------
+function getYearRange(events) {
+  const years = events
+    .flatMap((e) => [e.signedYearStart, e.signedYearEnd])
+    .filter((y) => Number.isFinite(y)); // drops nulls from single-date events
+
+  if (years.length === 0) {
+    const currentYear = new Date().getFullYear();
+    // ebb: If there aren't any years, use this current year from the current dateTime (today() on our computer running this JS.)
+    // We get today's year from getFullYear()
+    return { minYear: currentYear, maxYear: currentYear };
+  }
+  return {
+    minYear: Math.min(...years),
+    maxYear: Math.max(...years),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -319,7 +372,7 @@ function buildCard(event, index, events, onSelect) {
     arrow.setAttribute("href", "./images/arrow.png");
     arrow.setAttribute("x", screenWidth - 200);
     arrow.setAttribute("y", 5); /* ebb: changed from y of 55 */
-    /* ebb: Moved to CSS: Need a more flexible way to set the width on these arrows relative to viewport. 
+    /* ebb: Moved to CSS: Need a more flexible way to set the width on these arrows relative to viewport.
     arrow.setAttribute("width", 200); arrow.setAttribute("height", 120)*/
     arrow.setAttribute("class", "arrow");
     nextBtn.appendChild(arrow);
@@ -338,13 +391,16 @@ function buildCard(event, index, events, onSelect) {
     arrowB.setAttribute("href", "./images/arrowB.png");
     arrowB.setAttribute("x", screenWidth - 300);
     arrowB.setAttribute("y", 5);
-    /* ebb: Moved to CSS: Need a more flexible way to set the width on these arrows relative to viewport. 
+    /* ebb: Moved to CSS: Need a more flexible way to set the width on these arrows relative to viewport.
     arrowB.setAttribute("width", 200); arrowB.setAttribute("height", 120)*/
     arrowB.setAttribute("class", "arrow");
     prevBtn.appendChild(arrowB);
   }
 
   panel.appendChild(svg);
+
+  const maxTextWidth = screenWidth - 40 - 320; // left margin, then room for the arrows
+  fitTextToLines(desc, event.description ?? "", maxTextWidth);
 
   const titleWidth = title.getComputedTextLength();
 
@@ -356,6 +412,66 @@ function buildCard(event, index, events, onSelect) {
   highlight.setAttribute("stroke", "#17aaff77");
   highlight.setAttribute("stroke-width", 20);
   svg.insertBefore(highlight, title);
+}
+
+/* wrapText and fitTextToLines: ebb: These next functions help out
+the buildCard function, to allow wrapping
+long text in descriptions. */
+// Wraps text into <tspan> lines that fit within maxWidth.
+// The element must already be in the DOM, because measuring needs rendered text.
+function wrapText(textEl, text, maxWidth, lineHeight = 25) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const x = textEl.getAttribute("x");
+  const words = text.split(/\s+/); // also collapses newlines and indentation from the XML
+  textEl.textContent = "";
+
+  const newLine = (dy) => {
+    const tspan = document.createElementNS(svgNS, "tspan");
+    tspan.setAttribute("x", x); // each line restarts at the left margin
+    tspan.setAttribute("dy", dy); // and moves down one line
+    textEl.appendChild(tspan);
+    return tspan;
+  };
+
+  let tspan = newLine(0);
+  let line = "";
+  let lineCount = 1;
+
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    tspan.textContent = test;
+    if (tspan.getComputedTextLength() > maxWidth && line) {
+      tspan.textContent = line; // keep the previous line without the overflowing word
+      tspan = newLine(lineHeight);
+      tspan.textContent = word;
+      line = word;
+      lineCount += 1;
+    } else {
+      line = test;
+    }
+  });
+  return lineCount;
+}
+// fitTextToLines: Shrinks the font one pixel at a time until the text fits in maxLines.
+// Starts from whatever size our CSS gives the element.
+function fitTextToLines(
+  textEl,
+  text,
+  maxWidth,
+  maxLines = 3,
+  minSize = 8,
+  lineHeight = 25,
+) {
+  let size = parseFloat(getComputedStyle(textEl).fontSize);
+  textEl.style.fontSize = `${size}px`;
+  let lines = wrapText(textEl, text, maxWidth, lineHeight);
+
+  while (lines > maxLines && size > minSize) {
+    size -= 1;
+    textEl.style.fontSize = `${size}px`;
+    lines = wrapText(textEl, text, maxWidth, lineHeight);
+  }
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
@@ -430,28 +546,23 @@ function buildFixedPanel(events, svgHeight) {
 // The fixed left panel (labels, lines) lives in buildFixedPanel() and
 // does not scroll. Only the ruler content lives here.
 // ---------------------------------------------------------------------------
-function buildTimelineSVG(events, onSelect) {
+function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   const xSpacer = 10;
   const svgHeight = 288;
   const rulerY = 10;
   const rulerHeight = 220;
 
-  const years = events.map((e) => e.astronomicalYear);
-  const yearsEnd = events.map((e) => e.astronomicalYearEnd);
-  const earliestDate = Math.min(...years);
-  let latestDate = Math.max(...years);
-
-  if (yearsEnd.length > 0) {
-    latestDate = Math.max(...yearsEnd);
-    console.log(latestDate, "latest date");
-  } else {
-    latestDate = Math.max(...years);
-  }
+  // Ruler positions (gapless: no year 0). Data and labels stay in signed years.
+  const earliestPos = toPos(minYear);
+  const latestPos = toPos(maxYear);
 
   const padding = 100;
-  const rulerWidth = (latestDate - earliestDate) * xSpacer + padding * 2;
-  const translateX = Math.abs(earliestDate) * xSpacer + 140;
+  const rulerWidth = (latestPos - earliestPos) * xSpacer + padding * 2;
+  const translateX = -earliestPos * xSpacer + 140;
   const svgWidth = rulerWidth + translateX;
+  /* ebb: If the ruler width has too much space on the right, change
+  this to:
+  const svgWidth = rulerWidth + 80 */
 
   const svgNS = "http://www.w3.org/2000/svg";
 
@@ -480,7 +591,7 @@ function buildTimelineSVG(events, onSelect) {
   const rect = document.createElementNS(svgNS, "rect");
   rect.setAttribute("width", rulerWidth);
   rect.setAttribute("height", rulerHeight);
-  rect.setAttribute("x", earliestDate * xSpacer - padding);
+  rect.setAttribute("x", earliestPos * xSpacer - padding);
   rect.setAttribute("y", rulerY);
   rect.setAttribute("rx", 20);
   rect.setAttribute("ry", 20);
@@ -491,8 +602,9 @@ function buildTimelineSVG(events, onSelect) {
   g.appendChild(rect);
 
   // Tick marks — every 5 / 10 / 50 / 100 years
-  for (let year = Math.ceil(earliestDate); year <= latestDate; year += 1) {
-    const x = year * xSpacer;
+  for (let year = Math.floor(minYear); year <= Math.ceil(maxYear); year += 1) {
+    if (year === 0) continue;
+    const x = toPos(year) * xSpacer;
     const isCentury = year % 100 === 0;
     const isHalfCentury = year % 50 === 0;
     const isDecade = year % 10 === 0;
@@ -578,7 +690,7 @@ function buildTimelineSVG(events, onSelect) {
   }
 
   const hole = document.createElementNS(svgNS, "circle");
-  hole.setAttribute("cx", earliestDate * xSpacer - 50);
+  hole.setAttribute("cx", earliestPos * xSpacer - 50);
   hole.setAttribute("cy", 120);
   hole.setAttribute("r", 20);
   hole.setAttribute("fill", "#ecece8");
@@ -591,10 +703,10 @@ function buildTimelineSVG(events, onSelect) {
   // y positions must match the track label positions in buildFixedPanel()
   const trackY = { 1: 39, 2: 114, 3: 189 };
   events.forEach((event, index) => {
-    const startX = event.astronomicalYear * xSpacer;
+    const startX = toPos(event.signedYearStart) * xSpacer;
     const endX =
-      event.astronomicalYearEnd !== null
-        ? event.astronomicalYearEnd * xSpacer
+      event.signedYearEnd !== null
+        ? toPos(event.signedYearEnd) * xSpacer
         : startX + 5;
     let spanWidth = endX - startX;
     if (spanWidth < 1) {
@@ -632,6 +744,7 @@ function buildTimelineSVG(events, onSelect) {
   svg.appendChild(g);
   return { svg, translateX, xSpacer };
 }
+let currentIndex = 0;
 
 // ---------------------------------------------------------------------------
 // selectEvent()
@@ -639,6 +752,7 @@ function buildTimelineSVG(events, onSelect) {
 // Updates the card panel, pans the map, and scrolls the timeline ruler.
 // ---------------------------------------------------------------------------
 function selectEvent(index, events, map, svgInfo, onSelect) {
+  currentIndex = index;
   const event = events[index];
 
   buildCard(event, index, events, onSelect);
@@ -669,7 +783,8 @@ function selectEvent(index, events, map, svgInfo, onSelect) {
 // Entry point
 // ---------------------------------------------------------------------------
 const events = await parseEvents();
-events.sort((a, b) => a.astronomicalYear - b.astronomicalYear);
+events.sort((a, b) => a.signedYearStart - b.signedYearStart);
+const { minYear, maxYear } = getYearRange(events);
 
 const onSelect = (index) => selectEvent(index, events, map, svgInfo, onSelect);
 
@@ -679,9 +794,21 @@ const map = buildMap(events, onSelect);
 buildFixedPanel(events, 260);
 
 // Build scrollable ruler
-const { svg, translateX, xSpacer } = buildTimelineSVG(events, onSelect);
+const { svg, translateX, xSpacer } = buildTimelineSVG(events, onSelect, {
+  minYear,
+  maxYear,
+});
 const svgInfo = { translateX, xSpacer };
 document.getElementById("timeline-ruler").appendChild(svg);
 
 // Show the first event's card on load
 selectEvent(0, events, map, svgInfo, onSelect);
+
+// ebb: Listen for window resizing when we have long text in descriptions:
+let resizeTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer); // wait until resizing pauses
+  resizeTimer = setTimeout(() => {
+    buildCard(events[currentIndex], currentIndex, events, onSelect);
+  }, 150);
+});

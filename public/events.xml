@@ -3,7 +3,43 @@
 <!--This is an example xml filled with random events, feel free to copy and paste your own events over these ones from the template!-->
 <?xml-model href="events.rnc" type="application/relax-ng-compact-syntax"?>
 <events>
- <track type="1" name="early">
+ <track type="1" name="war">
+   <event>
+     <title>Dr. B Graduates College</title>
+     <date type="start">
+       <year>1993</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <date type="end">
+       <year>1995</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <description>Dr. B graduates from Washington and Jefferson College, and looks ahead to starting grad school at Penn State.</description>
+     <lat>40.174</lat><!-- POINT THESE to Washington, PA -->
+     <lon>-80.2462</lon>
+   </event>
+   <event>
+     <title>Dr. B works on something</title>
+     <date type="start">
+       <year>1990</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <date type="end">
+       <year>2005</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <description>Dr. B works on something that overlaps in time.</description>
+     <lat>42.174</lat><!-- POINT THESE to Washington, PA -->
+     <lon>-80.2462</lon>
+     
+     
+   </event>
+   
+   
   <event>
     <title>Julius Caesar invades Britain</title>
     <date type="start">
