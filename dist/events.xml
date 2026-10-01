@@ -11,10 +11,32 @@
        <month>05</month>
        <era>AD</era>
      </date>
-
+     <date type="end">
+       <year>1995</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
      <description>Dr. B graduates from Washington and Jefferson College, and looks ahead to starting grad school at Penn State.</description>
-     <lat>51.1789</lat><!-- POINT THESE to Washington, PA -->
-     <lon>1.1713</lon>
+     <lat>40.174</lat><!-- POINT THESE to Washington, PA -->
+     <lon>-80.2462</lon>
+   </event>
+   <event>
+     <title>Dr. B works on something</title>
+     <date type="start">
+       <year>1990</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <date type="end">
+       <year>2005</year>
+       <month>05</month>
+       <era>AD</era>
+     </date>
+     <description>Dr. B works on something that overlaps in time.</description>
+     <lat>42.174</lat><!-- POINT THESE to Washington, PA -->
+     <lon>-80.2462</lon>
+     
+     
    </event>
    
    
