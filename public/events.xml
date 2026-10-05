@@ -37,7 +37,7 @@
      <lon>-80.2462</lon>
    </event>
  </track>
-<track type="2" name="Roman empire"> 
+<track type="2" name="Roma"> 
   <event>
     <title>There is no Year Zero!</title>
     <date type="start">
@@ -86,7 +86,7 @@
   </event>
   </track>
  
- <track type="3" name="French Revolution">
+ <track type="3" name="France">
   <event>
     <title>Storming of the Bastille</title>
     <date type="start">
