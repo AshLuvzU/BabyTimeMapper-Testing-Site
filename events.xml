@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--This is an example xml filled with random events, feel free to copy and paste your own events over these ones from the template!-->
+<?xml-model href="events.rnc" type="application/relax-ng-compact-syntax"?>
+<events>
+  <track type="1" name="Early">
+    <event>
+      <title>Born!</title>
+      <date type="start">
+        <year>2005</year>
+        <month>04</month> 
+        <day>13</day>
+        <era>AD</era>
+      </date>
+      <!-- <date type="end">
+        <year></year>
+        <month></month> 
+        <day></day>
+        <era></era>
+      </date> -->
+      <description>I, Ashton Maloney, was born on April 13th, 2005!</description>
+      <lat>40.43650688907737</lat>
+      <lon>-79.98560681333872</lon>
+      <!-- <media></media> -->
+    </event>
+    <event>
+      <title>4th Birthday!</title>
+      <date type="start">
+        <year>2009</year>
+        <month>04</month>
+        <day>13</day>
+      </date>
+      <description>This is the earliest memory I have, I had no idea what day it even was!</description>
+      <lat>41.61665330705159</lat>
+      <lon>-79.98390613099112</lon>
+    </event>
+  </track>
+  
+  <track type="2" name="Mid">
+    <event>
+      <title></title>
+      <date type="start">
+        <year></year>
+        <month></month> 
+        <day></day>
+        <era></era>
+      </date>
+      <date type="end">
+        <year></year>
+        <month></month> 
+        <day></day>
+        <era></era>
+      </date>
+      <description></description>
+      <lat></lat>
+      <lon></lon>
+    </event>
+  </track>
+  
+  <track type="3" name="End?">
+    <event>
+      <title></title>
+      <date type="start">
+        <year></year>
+        <month></month> 
+        <day></day>
+        <era></era>
+      </date>
+      <date type="end">
+        <year></year>
+        <month></month> 
+        <day></day>
+        <era></era>
+      </date>
+      <description></description>
+      <lat></lat>
+      <lon></lon>
+    </event>
+  </track>
+</events> 
