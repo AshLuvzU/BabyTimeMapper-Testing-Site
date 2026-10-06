@@ -21,24 +21,24 @@ body {
 ------------------------------------------------------------------------- */
 .map-frame {
   position: relative;
-  flex: 1;
+  width: 100%;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 #map {
-  width: clamp(20rem, 100vw, 100rem);
-  height: clamp(18.7rem, 18.7vh, 18.7rem);
+  width: 100%;
+  height: 100%;
   border: none;
 }
 
 .map-frame::after {
-  width: clamp(20rem, 100vw, 100rem);
-  height: clamp(18.7rem, 18.7vh, 30rem);
   content: "";
   position: absolute;
   inset: 0;
-  border: 50px solid transparent;
-  border-image: url(/images/scalloped.png) 31 round;
+  border: clamp(15px, 3vw, 50px) solid transparent;
+  border-image: url("/images/scalloped.png") 31 round;
   pointer-events: none;
   z-index: 1000;
 }
@@ -52,7 +52,8 @@ body {
 }
 
 #card-panel {
-  height: clamp(5rem, 38.8vh, 10rem);
+  flex: 0 0 160px;
+  width: 100%;
   background: #ecece8;
   background-size: cover;
   background-repeat: no-repeat;
@@ -117,8 +118,9 @@ body {
 #timeline-container {
   display: flex;
   flex-direction: row;
+  flex: 0 0 280px;
   height: 280px;
-  flex-shrink: 0;
+  min-height: 280px;
 }
 
 /* Fixed left panel — track labels and divider lines, does not scroll */
