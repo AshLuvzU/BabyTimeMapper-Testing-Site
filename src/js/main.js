@@ -230,15 +230,37 @@ function buildMap(events, onSelect) {
       '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
 
-  var pinIcon = L.icon({
+  var PinIcon = L.Icon.extend({
+    options: {
+      iconSize: [50, 60],
+      iconAnchor: [25, 60],
+      popupAnchor: [0, -60],
+    },
+  });
+  var trackOneIcon = new PinIcon({
     iconUrl: "./images/pin.png",
-    iconSize: [50, 60],
-    iconAnchor: [25, 60],
-    popupAnchor: [0, -60],
+  });
+  var trackTwoIcon = new PinIcon({
+    iconUrl: "./images/pinGreen.png",
+  });
+  var trackThreeIcon = new PinIcon({
+    iconUrl: "./images/pinRed.png",
   });
 
   events.forEach((event, index) => {
-    const marker = L.marker([event.lat, event.lon], { icon: pinIcon })
+    let chosenIcon;
+
+    if (event.track === 1) {
+      chosenIcon = trackOneIcon;
+    } else if (event.track === 2) {
+      chosenIcon = trackTwoIcon;
+    } else if (event.track === 3) {
+      chosenIcon = trackThreeIcon;
+    }
+
+    const marker = L.marker([event.lat, event.lon], {
+      icon: chosenIcon,
+    })
       .addTo(map)
       .bindPopup(`<strong>${event.title}</strong><br>${event.displayDate}`);
 

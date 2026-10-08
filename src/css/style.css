@@ -161,3 +161,9 @@ body {
 .event-span:hover {
   fill: #b604ada1;
 }
+
+/* Leaflet zoom button*/
+.leaflet-control-zoom{
+margin-left: 35px !important; 
+margin-top: 35px !important; 
+}
