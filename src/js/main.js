@@ -592,14 +592,18 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   const rulerY = 10;
   const rulerHeight = 220;
 
-  // Ruler positions (gapless: no year 0). Data and labels stay in signed years.
   const earliestPos = toPos(minYear);
   const latestPos = toPos(maxYear);
 
   const padding = 100;
   const rulerWidth = (latestPos - earliestPos) * xSpacer + padding * 2;
-  const translateX = -earliestPos * xSpacer + 140;
-  const svgWidth = rulerWidth + translateX;
+
+  const yearX = (year) => (toPos(year) - earliestPos) * xSpacer + padding; // positions everything relative to the earliest year
+
+  const translateX = 0;
+  const screenWidth = window.innerWidth;
+  const svgWidth = screenWidth / 2 + rulerWidth;
+
   /* ebb: If the ruler width has too much space on the right, change
   this to:
   const svgWidth = rulerWidth + 80 */
@@ -620,7 +624,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
     const line = document.createElementNS(svgNS, "line");
     line.setAttribute("x1", -70000);
     line.setAttribute("y1", y);
-    line.setAttribute("x2", svgWidth);
+    line.setAttribute("x2", 70000);
     line.setAttribute("y2", y);
     line.setAttribute("stroke", "#173aff");
     line.setAttribute("stroke-width", 3);
@@ -631,7 +635,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   const rect = document.createElementNS(svgNS, "rect");
   rect.setAttribute("width", rulerWidth);
   rect.setAttribute("height", rulerHeight);
-  rect.setAttribute("x", earliestPos * xSpacer - padding);
+  rect.setAttribute("x", 0); // changed to start the ruler always at the value 0 and will then build each tick based on the previous year instead of a position value in the svg
   rect.setAttribute("y", rulerY);
   rect.setAttribute("rx", 20);
   rect.setAttribute("ry", 20);
@@ -644,7 +648,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   // Tick marks — every 5 / 10 / 50 / 100 years
   for (let year = Math.floor(minYear); year <= Math.ceil(maxYear); year += 1) {
     if (year === 0) continue;
-    const x = toPos(year) * xSpacer;
+    const x = yearX(year);
     const isCentury = year % 100 === 0;
     const isHalfCentury = year % 50 === 0;
     const isDecade = year % 10 === 0;
@@ -730,7 +734,7 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   }
 
   const hole = document.createElementNS(svgNS, "circle");
-  hole.setAttribute("cx", earliestPos * xSpacer - 50);
+  hole.setAttribute("cx", padding - 50);
   hole.setAttribute("cy", 120);
   hole.setAttribute("r", 20);
   hole.setAttribute("fill", "#ecece8");
@@ -743,11 +747,10 @@ function buildTimelineSVG(events, onSelect, { minYear, maxYear }) {
   // y positions must match the track label positions in buildFixedPanel()
   const trackY = { 1: 39, 2: 114, 3: 189 };
   events.forEach((event, index) => {
-    const startX = toPos(event.signedYearStart) * xSpacer;
+    const startX = yearX(event.signedYearStart);
+
     const endX =
-      event.signedYearEnd !== null
-        ? toPos(event.signedYearEnd) * xSpacer
-        : startX + 5;
+      event.signedYearEnd !== null ? yearX(event.signedYearEnd) : startX + 5;
     let spanWidth = endX - startX;
     if (spanWidth < 1) {
       spanWidth = 5;
